@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Meu Financeiro">
+  <rect width="128" height="128" rx="29" fill="#326a4d"/>
+  <path d="M27 48c0-8 6-14 14-14h46c8 0 14 6 14 14v34c0 8-6 14-14 14H41c-8 0-14-6-14-14V48Z" fill="#eff8ef"/>
+  <path d="M27 47h74v17H27z" fill="#d5e9da"/>
+  <path d="M63 27c-12 1-21 7-25 17h48c-4-10-12-16-23-17Z" fill="#a9d4b5"/>
+  <path d="M73 63h28v22H73c-6 0-11-5-11-11s5-11 11-11Z" fill="#6ba87d"/>
+  <circle cx="79" cy="74" r="4" fill="#eff8ef"/>
+</svg>

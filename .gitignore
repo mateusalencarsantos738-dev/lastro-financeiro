@@ -1,0 +1,17 @@
+.venv/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.env
+*.log
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+*.py[cod]
+*.egg-info/
+*.db
+*.dump
+*.sql
+!.env.example
