@@ -41,6 +41,9 @@ class Category(Base):
     is_entertainment: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     icon: Mapped[str | None] = mapped_column(String(40))
+    color: Mapped[str] = mapped_column(String(7), nullable=False, default="#326B50")
+    archived_on: Mapped[date | None] = mapped_column(Date)
+    visible_until: Mapped[date | None] = mapped_column(Date)
 
 
 class Transaction(Base):

@@ -17,6 +17,7 @@ class CategoryCreate(BaseModel):
     kind: Literal["income", "expense"] = "expense"
     is_entertainment: bool = False
     icon: str | None = Field(default=None, max_length=40)
+    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     budget_limit: Decimal | None = None
     budget_period_type: Literal["calendar_month", "monthly_day", "days", "weeks", "months"] = "calendar_month"
     budget_interval_count: int = Field(default=1, ge=1, le=120)

@@ -1,6 +1,7 @@
 export type Account = {id:string;name:string;kind:string}
-export type Category = {id:string;name:string;kind:string;is_entertainment:boolean;icon:string|null;budget_limit:string|null;budget_period_type:string;budget_interval_count:number;budget_renewal_day:number|null;budget_effective_start:string|null;budget_scheduled_start:string|null;budget_period_start:string|null;budget_next_renewal:string|null}
-export type BudgetStatus = {category_id:string;category:string;limit:string;spent:string;remaining:string;percent_used:number|null;state:'within'|'at_limit'|'exceeded';projection:string|null;period_start:string;period_end:string;next_renewal:string;period_type:string;interval_count:number;renewal_day:number|null}
+export type Category = {id:string;name:string;kind:string;is_entertainment:boolean;icon:string|null;color:string;is_active:boolean;archived_on:string|null;visible_until:string|null;budget_limit:string|null;budget_period_type:string;budget_interval_count:number;budget_renewal_day:number|null;budget_effective_start:string|null;budget_scheduled_start:string|null;budget_period_start:string|null;budget_next_renewal:string|null}
+export type CategoryArchivePreview = {category_id:string;name:string;current_spending_count:number;current_spent:string;transaction_count:number;period_start:string;period_end:string;visible_until:string|null}
+export type BudgetStatus = {category_id:string;category:string;color:string;icon:string|null;is_active:boolean;limit:string;spent:string;remaining:string;percent_used:number|null;state:'within'|'at_limit'|'exceeded';projection:string|null;period_start:string;period_end:string;next_renewal:string;period_type:string;interval_count:number;renewal_day:number|null}
 export type MonthlyComparison = {month:string;income:string;expenses:string;result:string}
 export type Overview = {month:string;cash_total:string;card_liability:string;open_bills:string;open_installments:string;reserved:string;cash_after_commitments:string;income:string;expenses:string;result:string;balances:{account_id:string;balance:string}[];budget_status:BudgetStatus[]}
 export type Transaction = {id:string;version:number;kind:string;amount:string;account_id:string;category_id:string|null;description:string;transaction_date:string;settled_date?:string|null;status:string;notes?:string|null;deleted_at?:string|null}
@@ -17,7 +18,7 @@ export type GoalContribution = {id:string;amount_delta:string;contributed_on:str
 export type CalendarDay = {date:string;income:string;expenses:string;result:string;transactions:{id:string;description:string;kind:string;amount:string;status:string;category_id:string|null}[];bills:{id:string;description:string;amount:string;paid:boolean}[];invoices:{id:string;card:string;amount:string;paid:boolean}[];recurring:{id:string;description:string;kind:string;amount:string;in_trash:boolean}[]}
 export type NetWorth = {cash:string;investments:string;liabilities:string;card_liability:string;bill_liability:string;net_worth:string}
 export type NetWorthSnapshot = {id:string;as_of_date:string;cash:string;investments:string;liabilities:string;net_worth:string}
-export type Spending = {category_id:string;category:string;is_entertainment:boolean;spent:string}
+export type Spending = {category_id:string;category:string;is_entertainment:boolean;color:string;icon:string|null;spent:string}
 export type Entertainment = {month:string;spent:string;cycle_spent:string;limit:string|null;remaining:string|null;average_completed_months:string|null;projection:string|null;history:{month:string;spent:string;records:number}[];top_expenses:{description:string;amount:string}[]}
 
 export async function api<T>(path:string, init?:RequestInit):Promise<T>{

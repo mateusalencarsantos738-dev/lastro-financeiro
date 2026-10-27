@@ -10,6 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from backend.app.db import get_session
+from backend.app.categories import archive_preview, archive_category, restore_category, suggested_color
 from backend.app.serialization import wire
 from backend.app.domain import (
     account_balances, budget_status, create_investment_event, create_transaction,
@@ -70,8 +71,13 @@ def add_account(data: AccountCreate, session: Session = Depends(get_session)):
 
 
 @router.get("/categories")
-def list_categories(session: Session = Depends(get_session)):
-    return [category_payload(session, c) for c in session.scalars(select(Category).where(Category.is_active.is_(True)).order_by(Category.name))]
+def list_categories(scope: str = "active", session: Session = Depends(get_session)):
+    if scope not in ("active", "archived", "all"):
+        raise HTTPException(422, "Filtro de categorias inválido")
+    stmt = select(Category).order_by(Category.name)
+    if scope != "all":
+        stmt = stmt.where(Category.is_active.is_(scope == "active"))
+    return [category_payload(session, c) for c in session.scalars(stmt)]
 
 
 def category_payload(session: Session, category: Category) -> dict:
@@ -81,6 +87,8 @@ def category_payload(session: Session, category: Category) -> dict:
     display = rule or (future if not active else None)
     return {"id": str(category.id), "name": category.name, "kind": category.kind,
             "is_entertainment": category.is_entertainment, "icon": category.icon,
+            "color": category.color, "is_active": category.is_active,
+            "archived_on": category.archived_on, "visible_until": category.visible_until,
             "budget_limit": active[0] if active else future.limit_amount if future else None,
             "budget_period_type": display.period_type if display else "calendar_month",
             "budget_interval_count": display.interval_count if display else 1,
@@ -112,7 +120,8 @@ def add_category(data: CategoryCreate, session: Session = Depends(get_session)):
     with session.begin():
         if session.scalar(select(Category).where(Category.name == data.name.strip())):
             raise HTTPException(409, "Já existe uma categoria com esse nome")
-        category = Category(name=data.name.strip(), kind=data.kind, is_entertainment=data.is_entertainment, icon=data.icon or None)
+        category = Category(name=data.name.strip(), kind=data.kind, is_entertainment=data.is_entertainment,
+                            icon=data.icon or None, color=data.color.upper() if data.color else suggested_color(session))
         session.add(category)
         session.flush()
         apply_category_budget(session, category, data)
@@ -140,7 +149,32 @@ def edit_category(category_id: UUID, data: CategoryCreate, session: Session = De
         row.is_entertainment = data.is_entertainment
         if data.icon is not None:
             row.icon = data.icon or None
+        if data.color is not None:
+            row.color = data.color.upper()
         apply_category_budget(session, row, data)
+        result = category_payload(session, row)
+    return result
+
+
+@router.get("/categories/{category_id}/archive-preview")
+def get_category_archive_preview(category_id: UUID, session: Session = Depends(get_session)):
+    row = session.get(Category, category_id)
+    if not row:
+        raise HTTPException(404, "Categoria não encontrada")
+    return archive_preview(session, row, date.today())
+
+
+@router.post("/categories/{category_id}/archive")
+def archive_category_endpoint(category_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        result = archive_category(session, category_id, date.today())
+    return result
+
+
+@router.post("/categories/{category_id}/restore")
+def restore_category_endpoint(category_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        row = restore_category(session, category_id)
         result = category_payload(session, row)
     return result
 
@@ -360,8 +394,13 @@ def deactivate_recurring(plan_id: UUID, session: Session = Depends(get_session))
 
 @router.post("/bills", status_code=201)
 def add_bill(data: BillCreate, session: Session = Depends(get_session)):
-    row = Bill(**data.model_dump())
-    session.add(row); session.commit()
+    with session.begin():
+        if data.category_id:
+            category = session.scalar(select(Category).where(Category.id == data.category_id).with_for_update())
+            if not category or not category.is_active or category.kind != "expense":
+                raise HTTPException(422, "Selecione uma categoria de despesa ativa")
+        row = Bill(**data.model_dump())
+        session.add(row)
     return {"id": str(row.id), "description": row.description, "amount": row.amount, "due_date": row.due_date}
 
 

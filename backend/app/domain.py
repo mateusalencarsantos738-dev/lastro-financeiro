@@ -10,6 +10,7 @@ from sqlalchemy import select, func, case
 from sqlalchemy.orm import Session
 
 from backend.app.models import Account, Budget, BudgetRule, Category, IdempotencyRecord, Investment, InvestmentEvent, Transaction, TransactionLifecycleEvent, Bill, Goal, GoalAllocation, GoalTrackingAccount, GoalContribution, CreditCard, CreditPurchase, Invoice, Installment, TransactionRevision, InvestmentValuation, NetWorthSnapshot, RecurringPlan, RecurringOccurrence
+from backend.app.categories import category_visible_in_budget
 
 
 def money(value: Decimal | str | int) -> Decimal:
@@ -91,7 +92,7 @@ def create_transaction(session: Session, data: dict, idempotency_key: str | None
         raise HTTPException(422, "Reembolso exige categoria ou despesa original")
     if kind == "refund" and data.get("status") == "pending":
         raise HTTPException(422, "Registre o reembolso somente quando ele for recebido")
-    category = session.get(Category, category_id) if category_id else None
+    category = session.scalar(select(Category).where(Category.id == category_id).with_for_update()) if category_id else None
     if category_id and (not category or not category.is_active):
         raise HTTPException(404, "Categoria não encontrada ou inativa")
     if category and category.kind != ("income" if kind == "income" else "expense"):
@@ -161,12 +162,12 @@ def create_transfer(session: Session, source_id: UUID, dest_id: UUID, amount: De
 def spend_by_category(session: Session, start: date, end: date) -> list[dict]:
     financial_date = func.coalesce(Transaction.settled_date, Transaction.transaction_date)
     rows = session.execute(
-        select(Category.id, Category.name, Category.is_entertainment, func.coalesce(func.sum(case((Transaction.kind == "refund", -Transaction.amount), else_=Transaction.amount)), 0))
+        select(Category.id, Category.name, Category.is_entertainment, Category.color, Category.icon, func.coalesce(func.sum(case((Transaction.kind == "refund", -Transaction.amount), else_=Transaction.amount)), 0))
         .join(Transaction, Transaction.category_id == Category.id)
         .where(Transaction.kind.in_(["expense", "refund"]), Transaction.status == "settled", Transaction.deleted_at.is_(None), financial_date >= start, financial_date <= end)
         .group_by(Category.id)
     ).all()
-    return [{"category_id": str(row[0]), "category": row[1], "is_entertainment": row[2], "spent": Decimal(row[3])} for row in rows]
+    return [{"category_id": str(row[0]), "category": row[1], "is_entertainment": row[2], "color": row[3], "icon": row[4], "spent": Decimal(row[5])} for row in rows]
 
 
 def budget_cycle(rule: BudgetRule, day: date) -> tuple[date, date]:
@@ -237,7 +238,9 @@ def active_budget(session: Session, category_id: UUID, day: date) -> tuple[Decim
 def budget_status(session: Session, day: date) -> list[dict]:
     financial_date = func.coalesce(Transaction.settled_date, Transaction.transaction_date)
     out = []
-    for category in session.scalars(select(Category).where(Category.kind == "expense", Category.is_active.is_(True)).order_by(Category.name)):
+    for category in session.scalars(select(Category).where(Category.kind == "expense").order_by(Category.name)):
+        if not category_visible_in_budget(category, day):
+            continue
         active = active_budget(session, category.id, day)
         if not active:
             continue
@@ -261,14 +264,14 @@ def budget_status(session: Session, day: date) -> list[dict]:
             )).all()
             if len(set(expense_days)) >= 3:
                 projection = (Decimal(spent) / elapsed * (end - start).days).quantize(Decimal("0.01"))
-        out.append({"category_id": str(category.id), "category": category.name, "limit": limit, "spent": Decimal(spent), "remaining": limit - Decimal(spent), "percent_used": (Decimal(spent) / limit * 100) if limit else None, "state": "exceeded" if Decimal(spent) > limit else "at_limit" if Decimal(spent) == limit else "within", "projection": projection, "period_start": start, "period_end": end - timedelta(days=1), "next_renewal": end, "period_type": rule.period_type if rule else "calendar_month", "interval_count": rule.interval_count if rule else 1, "renewal_day": rule.renewal_day if rule else None})
+        out.append({"category_id": str(category.id), "category": category.name, "color": category.color, "icon": category.icon, "is_active": category.is_active, "limit": limit, "spent": Decimal(spent), "remaining": limit - Decimal(spent), "percent_used": (Decimal(spent) / limit * 100) if limit else None, "state": "exceeded" if Decimal(spent) > limit else "at_limit" if Decimal(spent) == limit else "within", "projection": projection, "period_start": start, "period_end": end - timedelta(days=1), "next_renewal": end, "period_type": rule.period_type if rule else "calendar_month", "interval_count": rule.interval_count if rule else 1, "renewal_day": rule.renewal_day if rule else None})
     return out
 
 
 def set_budget(session: Session, category_id: UUID, effective_start: date, limit_amount: Decimal,
                period_type: str = "calendar_month", interval_count: int = 1,
                renewal_day: int | None = None) -> BudgetRule:
-    category = session.get(Category, category_id)
+    category = session.scalar(select(Category).where(Category.id == category_id).with_for_update())
     if not category or not category.is_active or category.kind != "expense":
         raise HTTPException(422, "Selecione uma categoria de despesa ativa")
     try:
@@ -345,7 +348,7 @@ def create_recurring_plan(session: Session, data: dict) -> RecurringPlan:
     if not account or not account.is_active or account.kind == "credit_card":
         raise HTTPException(422, "Selecione uma conta monetária ativa")
     category_id = data.get("category_id")
-    category = session.get(Category, category_id) if category_id else None
+    category = session.scalar(select(Category).where(Category.id == category_id).with_for_update()) if category_id else None
     if kind == "expense" and not category:
         raise HTTPException(422, "Despesa recorrente exige categoria")
     if category and (not category.is_active or category.kind != kind):
@@ -570,7 +573,7 @@ def create_credit_purchase(session: Session, card_id: UUID, category_id: UUID, t
         raise HTTPException(422, "Descrição da compra inválida")
     card = session.get(CreditCard, card_id)
     category = session.get(Category, category_id)
-    if not card or not category or category.kind != "expense":
+    if not card or not category or not category.is_active or category.kind != "expense":
         raise HTTPException(404, "Cartão ou categoria de despesa não encontrado")
     if key:
         existing = session.scalar(select(CreditPurchase).join(Transaction, CreditPurchase.transaction_id == Transaction.id).where(Transaction.idempotency_key == key))
@@ -702,8 +705,8 @@ def update_card_purchase(session: Session, purchase_id: UUID, expected_version: 
     if not merchant or len(merchant) > 180:
         raise HTTPException(422, "Descrição da compra inválida")
     category_id = changes.get("category_id", tx.category_id)
-    category = session.get(Category, category_id)
-    if not category or not category.is_active or category.kind != "expense":
+    category = session.scalar(select(Category).where(Category.id == category_id).with_for_update())
+    if not category or (not category.is_active and category_id != tx.category_id) or category.kind != "expense":
         raise HTTPException(422, "Categoria de despesa inválida")
     card_id = changes.get("card_id", purchase.card_id)
     card = session.get(CreditCard, card_id)
@@ -803,7 +806,7 @@ def pay_invoice(session: Session, invoice_id: UUID, source_account_id: UUID, day
 def entertainment_status(session: Session, month: date) -> dict:
     period = period_for(month)
     financial_date = func.coalesce(Transaction.settled_date, Transaction.transaction_date)
-    category_ids = [c.id for c in session.scalars(select(Category).where(Category.is_entertainment.is_(True), Category.is_active.is_(True)))]
+    category_ids = [c.id for c in session.scalars(select(Category).where(Category.is_entertainment.is_(True)))]
     if not category_ids:
         return {"month": period, "spent": Decimal("0"), "cycle_spent": Decimal("0"), "limit": None, "remaining": None, "history": [], "average_completed_months": None, "projection": None, "top_expenses": []}
     history = []
@@ -875,10 +878,10 @@ def update_transaction(session: Session, transaction_id: UUID, expected_version:
         raise HTTPException(422, "Corrija a operação vinculada à compra ou conta a pagar")
     if session.scalar(select(Transaction).where(Transaction.related_id == row.id, Transaction.kind == "refund", Transaction.deleted_at.is_(None))):
         raise HTTPException(422, "Movimentação com reembolso vinculado não pode ser corrigida diretamente")
-    category = session.get(Category, category_id) if category_id else None
+    category = session.scalar(select(Category).where(Category.id == category_id).with_for_update()) if category_id else None
     if row.kind in ("expense", "refund") and category is None:
         raise HTTPException(422, "Despesa ou reembolso exige categoria")
-    if category and (not category.is_active or category.kind != ("income" if row.kind == "income" else "expense")):
+    if category and ((not category.is_active and category_id != row.category_id) or category.kind != ("income" if row.kind == "income" else "expense")):
         raise HTTPException(422, "Categoria incompatível")
     if not description.strip() or len(description.strip()) > 180:
         raise HTTPException(422, "Descrição inválida")

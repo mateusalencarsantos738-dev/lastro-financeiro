@@ -9,17 +9,19 @@ from mcp.types import ToolAnnotations
 from sqlalchemy import select
 
 from backend.app.db import SessionLocal
+from backend.app.api import category_payload
+from backend.app.categories import archive_preview, archive_category, restore_category
 from backend.app.serialization import wire
 from backend.app.domain import (
     account_balances, budget_status, create_investment_event,
     create_transaction, create_transfer, create_credit_purchase, invoice_status, pay_invoice,
     get_upcoming_bills, goals, entertainment_status,
-    net_worth, overview, spend_by_category, set_budget, active_budget, monthly_comparison,
+    net_worth, overview, spend_by_category, set_budget, monthly_comparison,
     update_transaction, record_investment_valuation, record_net_worth_snapshot,
     recurring_status, investment_summary, delete_transaction, restore_transaction, transaction_deletion_group,
     card_purchase_payload, update_card_purchase,
 )
-from backend.app.models import Account, BudgetRule, Category, CreditCard, CreditPurchase, Invoice, Investment, Installment, Transaction, NetWorthSnapshot
+from backend.app.models import Account, Category, CreditCard, CreditPurchase, Invoice, Investment, Installment, Transaction, NetWorthSnapshot
 
 mcp = FastMCP("Meu Financeiro")
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
@@ -43,24 +45,46 @@ def finance_get_balances() -> list[dict]:
 
 
 @mcp.tool(annotations=READ_ONLY)
-def finance_list_categories() -> list[dict]:
-    """Lista categorias, IDs e configuração do limite ativo no dia atual."""
+def finance_list_categories(scope: str = "active") -> list[dict]:
+    """Lista categorias ativas, arquivadas ou todas (scope=active, archived, all), com cor, estado e ciclo de orçamento."""
+    if scope not in ("active", "archived", "all"):
+        raise ValueError("scope deve ser active, archived ou all")
     with SessionLocal() as session:
-        result = []
-        for c in session.scalars(select(Category).where(Category.is_active.is_(True)).order_by(Category.name)):
-            active = active_budget(session, c.id, date.today()) if c.kind == "expense" else None
-            rule = active[3] if active else None
-            future = session.scalar(select(BudgetRule).where(BudgetRule.category_id == c.id, BudgetRule.effective_start > date.today()).order_by(BudgetRule.effective_start).limit(1)) if c.kind == "expense" else None
-            display = rule or (future if not active else None)
-            result.append({"id": c.id, "name": c.name, "kind": c.kind, "is_entertainment": c.is_entertainment,
-                           "icon": c.icon, "budget_limit": active[0] if active else future.limit_amount if future else None,
-                           "budget_period_type": display.period_type if display else "calendar_month",
-                           "budget_interval_count": display.interval_count if display else 1,
-                           "budget_renewal_day": display.renewal_day if display else None,
-                           "budget_effective_start": display.effective_start if display else None,
-                           "budget_scheduled_start": future.effective_start if future else None,
-                           "budget_next_renewal": active[2] if active else None})
-        return wire(result)
+        stmt = select(Category).order_by(Category.name)
+        if scope != "all":
+            stmt = stmt.where(Category.is_active.is_(scope == "active"))
+        return wire([category_payload(session, c) for c in session.scalars(stmt)])
+
+
+@mcp.tool(annotations=READ_ONLY)
+def finance_preview_category_archive(category_id: str) -> dict:
+    """Mostra gastos e data de saída dos indicadores antes de arquivar; não modifica dados."""
+    with SessionLocal() as session:
+        category = session.get(Category, UUID(category_id))
+        if not category:
+            raise ValueError("Categoria não encontrada")
+        return wire(archive_preview(session, category, date.today()))
+
+
+@mcp.tool(annotations=CORRECTION_WRITE)
+def finance_archive_category(category_id: str, confirmed: bool) -> dict:
+    """Arquiva uma categoria sem apagar gastos, orçamento ou vínculos; consulte a prévia e confirme."""
+    if not confirmed:
+        raise ValueError("Confirme o arquivamento após consultar a prévia")
+    with SessionLocal.begin() as session:
+        result = archive_category(session, UUID(category_id), date.today())
+    return wire(result)
+
+
+@mcp.tool(annotations=CORRECTION_WRITE)
+def finance_restore_category(category_id: str, confirmed: bool) -> dict:
+    """Restaura o mesmo registro e ID; preserva cor, ícone, histórico e ciclos de orçamento."""
+    if not confirmed:
+        raise ValueError("Confirme a restauração")
+    with SessionLocal.begin() as session:
+        category = restore_category(session, UUID(category_id))
+        result = category_payload(session, category)
+    return wire(result)
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -178,7 +202,7 @@ def finance_create_transfer(source_account_id: str, destination_account_id: str,
 
 @mcp.tool(annotations=READ_ONLY)
 def finance_get_budget_status(month: str | None = None) -> list[dict]:
-    """Consulta limites, gasto realizado e saldo restante por categoria no mês."""
+    """Consulta o ciclo do limite que contém a data informada em month (AAAA-MM-DD), ou hoje. Retorna periodicidade, início, fim, próxima renovação, gasto e restante."""
     with SessionLocal() as session: return wire(budget_status(session, date.fromisoformat(month) if month else date.today()))
 
 
@@ -205,7 +229,7 @@ def finance_set_budget(category_id: str, month: str, limit_amount: str, period_t
 
 @mcp.tool(annotations=READ_ONLY)
 def finance_get_category_spending(start: str, end: str) -> list[dict]:
-    """Soma despesas realizadas por competência e categoria no intervalo inclusivo."""
+    """Soma despesas realizadas pela data financeira e categoria no intervalo inclusivo, independentemente do ciclo do limite."""
     with SessionLocal() as session: return wire(spend_by_category(session, date.fromisoformat(start), date.fromisoformat(end)))
 
 

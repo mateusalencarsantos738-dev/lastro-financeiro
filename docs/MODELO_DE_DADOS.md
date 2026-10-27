@@ -1,10 +1,10 @@
 # Modelo de dados implementado
 
-O esquema está versionado em `migrations/versions/0001_initial.py` até `0008_goal_tracking_category_icon.py`. As migrações posteriores acrescentam planos recorrentes, detalhes de investimentos e metas, ordem de reservas, lixeira reversível, acompanhamento de contas e ícones. Todas as tabelas financeiras usam chaves UUID; contas, categorias e lançamentos relacionados usam chaves estrangeiras restritivas.
+O esquema está versionado em `migrations/versions/0001_initial.py` até `0012_category_lifecycle_color.py`. As migrações acrescentam planos recorrentes, detalhes de investimentos e metas, ordem de reservas, lixeira reversível, acompanhamento de contas, ícones, ciclos de orçamento, cores persistidas e arquivamento recuperável de categorias. Todas as tabelas financeiras usam chaves UUID; contas, categorias e lançamentos relacionados usam chaves estrangeiras restritivas.
 
 | Tabela | Papel |
 | --- | --- |
-| `accounts`, `categories` | Contas monetárias, cartões e categorias editáveis; categorias têm ícone estável opcional e podem ser marcadas como entretenimento. |
+| `accounts`, `categories` | Contas monetárias, cartões e categorias editáveis; categorias têm ícone, cor hexadecimal persistida, estado ativo, data de arquivamento e último dia de visibilidade corrente. |
 | `transactions` | Receitas, despesas, reembolsos, duas pernas de transferências e saídas para aporte. Guarda data, competência, situação, vínculo, chave de idempotência e versão. |
 | `budgets`, `idempotency_records` | Limite por categoria/mês e prevenção de repetição de operações. |
 | `credit_cards`, `credit_purchases`, `invoices`, `installments` | Compra integral reconhecida no consumo, cronograma de parcelas e pagamento de fatura sem nova despesa. |
