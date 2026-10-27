@@ -15,7 +15,7 @@ PY
 BACKUP_FILE="$CODEX_CONFIG.backup-meu-financeiro-$(date +%Y%m%d_%H%M%S)"
 cp -p "$CODEX_CONFIG" "$BACKUP_FILE"
 chmod 600 "$BACKUP_FILE"
-codex mcp add meu_financeiro -- "$PROJECT_DIR/scripts/run-mcp.sh"
+codex mcp add meu_financeiro --env "XDG_RUNTIME_DIR=/run/user/$(id -u)" --env "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" -- "$PROJECT_DIR/scripts/run-mcp.sh"
 python3 - "$CODEX_CONFIG" <<'PY'
 import sys, tomllib
 with open(sys.argv[1], 'rb') as file:

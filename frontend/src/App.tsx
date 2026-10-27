@@ -71,7 +71,7 @@ export default function App(){
   const [undoId,setUndoId]=useState('')
   const [toast,setToast]=useState('')
   const [busy,setBusy]=useState(false)
-  async function refresh(){
+  async function refresh(silent=false){
     try{
       const [o,a,c,t,ca,cp,inv,bi,i,g,w,wh,s,e,mc,rp,trashed,br]=await Promise.all([
         api<Overview>(`/overview?month=${month}`),api<Account[]>('/accounts'),api<Category[]>('/categories?scope=all'),
@@ -88,9 +88,16 @@ export default function App(){
       setOverview(o);setAccounts(a);setCategories(c);setTransactions(t);setTrash(trashed);setCards(ca);setPurchases(cp);setInvoices(inv)
       setBills(bi);setRecurring(rp);setInvestments(i);setGoals(g);setWorth(w);setWorthHistory(wh);setSpending(s);setEntertainment(e);setComparison(mc);setBudgetRows(br)
       setCalendarVersion(value=>value+1)
-    }catch(error){setToast(error instanceof Error?error.message:'Falha de conexão')}
+    }catch(error){if(!silent)setToast(error instanceof Error?error.message:'Falha de conexão')}
   }
   useEffect(()=>{void refresh()},[month])
+  useEffect(()=>{
+    const onActive=()=>{if(document.visibilityState==='visible'&&!busy)void refresh(true)}
+    window.addEventListener('focus',onActive)
+    document.addEventListener('visibilitychange',onActive)
+    const timer=window.setInterval(onActive,5000)
+    return()=>{window.removeEventListener('focus',onActive);document.removeEventListener('visibilitychange',onActive);window.clearInterval(timer)}
+  },[month,budgetAsOf,busy])
   useEffect(()=>{void Promise.all([api<BudgetStatus[]>(`/budgets?month=${budgetAsOf}`),api<Entertainment>(`/entertainment?month=${budgetAsOf}`)]).then(([rows,status])=>{setBudgetRows(rows);setEntertainment(status)}).catch(error=>setToast(error instanceof Error?error.message:'Falha ao carregar orçamentos'))},[budgetAsOf])
   useEffect(()=>{if(toast){const timer=setTimeout(()=>{setToast('');setUndoId('')},undoId?9000:4500);return()=>clearTimeout(timer)}},[toast,undoId])
   const filtered=useMemo(()=>transactions.filter(t=>

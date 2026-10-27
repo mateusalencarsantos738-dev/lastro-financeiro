@@ -21,6 +21,11 @@ from backend.app.domain import (
     create_recurring_plan, recurring_status, realize_recurring_plan, investment_summary,
     delete_transaction, restore_transaction, transaction_deletion_group, calendar_days,
     card_purchase_payload, update_card_purchase,
+    get_account_domain, update_account_domain, archive_account_domain, restore_account_domain,
+    get_category_domain, list_transfers_domain, get_transfer_domain,
+    get_card_domain, update_credit_card_domain, archive_credit_card_domain, restore_credit_card_domain,
+    get_invoice_domain, list_installments_domain, update_bill_domain,
+    set_recurring_plan_active_domain, compare_periods_domain,
 )
 from backend.app.models import Account, Bill, Budget, BudgetRule, Category, Goal, GoalAllocation, GoalTrackingAccount, GoalContribution, Investment, InvestmentEvent, Transaction, TransactionLifecycleEvent, CreditCard, CreditPurchase, Invoice, Installment, TransactionRevision, InvestmentValuation, NetWorthSnapshot, RecurringPlan
 from backend.app.schemas import (
@@ -714,6 +719,80 @@ def monthly_comparison(months: int = Query(6, ge=2, le=24), session: Session = D
 @router.get("/calendar")
 def get_calendar(start: date, end: date, session: Session = Depends(get_session)):
     return calendar_days(session, start, end)
+
+
+@router.get("/compare-periods")
+def compare_periods(start_a: date, end_a: date, start_b: date, end_b: date, session: Session = Depends(get_session)):
+    return compare_periods_domain(session, start_a, end_a, start_b, end_b)
+
+
+@router.get("/accounts/{account_id}")
+def get_account(account_id: UUID, session: Session = Depends(get_session)):
+    return get_account_domain(session, account_id)
+
+
+@router.post("/accounts/{account_id}/archive")
+def archive_account(account_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        return archive_account_domain(session, account_id)
+
+
+@router.post("/accounts/{account_id}/restore")
+def restore_account(account_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        return restore_account_domain(session, account_id)
+
+
+@router.get("/categories/{category_id}")
+def get_category(category_id: UUID, session: Session = Depends(get_session)):
+    return get_category_domain(session, category_id)
+
+
+@router.get("/transfers")
+def list_transfers(start: date | None = None, end: date | None = None, account_id: UUID | None = None,
+                   include_invoice_payments: bool = False, limit: int = Query(100, ge=1, le=500),
+                   session: Session = Depends(get_session)):
+    return list_transfers_domain(session, start, end, account_id, include_invoice_payments, limit)
+
+
+@router.get("/transfers/{transaction_id}")
+def get_transfer(transaction_id: UUID, session: Session = Depends(get_session)):
+    return get_transfer_domain(session, transaction_id)
+
+
+@router.get("/cards/{card_id}")
+def get_card(card_id: UUID, session: Session = Depends(get_session)):
+    return get_card_domain(session, card_id)
+
+
+@router.post("/cards/{card_id}/archive")
+def archive_card(card_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        return archive_credit_card_domain(session, card_id)
+
+
+@router.post("/cards/{card_id}/restore")
+def restore_card(card_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        return restore_credit_card_domain(session, card_id)
+
+
+@router.get("/invoices/{invoice_id}")
+def get_invoice(invoice_id: UUID, session: Session = Depends(get_session)):
+    return get_invoice_domain(session, invoice_id)
+
+
+@router.get("/installments")
+def list_installments(card_id: UUID | None = None, invoice_id: UUID | None = None,
+                      purchase_id: UUID | None = None, unpaid_only: bool = False,
+                      through: date | None = None, session: Session = Depends(get_session)):
+    return list_installments_domain(session, card_id, invoice_id, purchase_id, unpaid_only, through)
+
+
+@router.post("/recurring-plans/{plan_id}/activate")
+def activate_recurring(plan_id: UUID, session: Session = Depends(get_session)):
+    with session.begin():
+        return set_recurring_plan_active_domain(session, plan_id, True)
 
 
 @router.get("/export.csv")
