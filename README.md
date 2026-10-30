@@ -1,29 +1,41 @@
 # Meu Financeiro
 
-Aplicativo pessoal de finanças que roda neste computador. O PostgreSQL guarda os registros; a interface abre pelo ícone **Meu Financeiro** no menu do Ubuntu. O mesmo banco atende ao servidor MCP local usado pelo Codex.
+Aplicativo pessoal de finanças que roda neste computador. O PostgreSQL guarda os registros e a interface abre pelo ícone **Meu Financeiro** no menu do Ubuntu. O servidor MCP local lê o mesmo banco, então qualquer assistente de IA compatível com MCP, como Claude, Codex ou Gemini, pode consultar e registrar seus dados.
 
 ## Começar
 
 1. Abra **Meu Financeiro** pelo menu de aplicativos.
-2. Cadastre uma conta e o saldo inicial. Depois, crie as categorias que usa.
-3. Registre receitas e despesas. Para compras no cartão, use **Contas e cartões → Nova compra**, pois o pagamento da fatura não deve repetir a despesa.
-4. Defina um limite ao criar ou editar uma categoria de despesa, ou em **Orçamentos**. Escolha mês civil, dia fixo do mês ou intervalo de N dias, semanas ou meses. Marque como entretenimento as categorias de lazer que desejar acompanhar em conjunto.
+2. Cadastre uma conta com o saldo inicial e crie as categorias que você usa.
+3. Registre suas receitas e despesas. Compras no cartão entram em **Contas e cartões → Nova compra**. Assim, o pagamento da fatura não conta a despesa duas vezes.
+4. Defina um limite ao criar ou editar uma categoria de despesa, ou em **Orçamentos**. O ciclo pode ser o mês civil, um dia fixo do mês ou um intervalo de N dias, semanas ou meses. Se quiser acompanhar o lazer em conjunto, marque essas categorias como entretenimento.
 
-O seletor **Mês** muda os relatórios de gastos do mês civil; os limites mostram o ciclo vigente de cada categoria, que pode atravessar meses. Em **Orçamentos**, use **Consultar ciclo na data** para inspecionar um ciclo passado ou futuro em qualquer dia. O ícone de calendário abre as visões por dia, semana, mês e ano. Cada categoria de despesa oferece **Lançar gasto**, **Editar** e **Definir limite**. O formulário mostra o primeiro período e a próxima renovação antes de salvar. Compras manuais do cartão podem ser editadas ou enviadas à **Lixeira** na lista de gastos, na fatura, nos detalhes e no histórico; não é preciso informar um motivo. A exclusão ajusta parcelas e o pagamento manual da fatura, quando houver, e pode ser desfeita pela Lixeira. Em **Patrimônio**, metas podem ser criadas sem saldo e acompanhadas por contas escolhidas. O botão superior alterna imediatamente entre claro e escuro; o perfil conserva também a opção de seguir o sistema.
+O seletor **Mês** controla os relatórios de gastos do mês civil. Os limites seguem o ciclo vigente de cada categoria, que pode atravessar meses. Para ver um ciclo passado ou futuro, use **Consultar ciclo na data** em **Orçamentos** e escolha o dia. O ícone de calendário abre as visões por dia, semana, mês e ano.
 
-Saldos e patrimônio mostram a posição atual. Valores de investimentos são informados manualmente, sem cotação automática. A tela de patrimônio permite guardar uma fotografia datada para acompanhar a evolução a partir dela.
+Cada categoria de despesa tem os botões **Lançar gasto**, **Editar** e **Definir limite**. Antes de salvar, o formulário mostra o primeiro período e a próxima renovação.
+
+As compras manuais no cartão podem ser editadas ou enviadas à **Lixeira** pela lista de gastos, pela fatura, pelos detalhes e pelo histórico, sem precisar informar motivo. A exclusão ajusta as parcelas e o pagamento manual da fatura, se houver, e dá para desfazê-la pela Lixeira.
+
+Em **Patrimônio**, você pode criar metas sem saldo e acompanhá-las por contas à sua escolha. O botão no topo alterna na hora entre tema claro e escuro, e o perfil também permite seguir o tema do sistema.
+
+Saldos e patrimônio mostram a posição atual. Você informa os valores dos investimentos manualmente, pois não há cotação automática. Na tela de patrimônio, é possível guardar uma fotografia datada e acompanhar a evolução a partir dela.
 
 ## Onde encontrar ajuda
 
 - [Instalação e solução de falhas](docs/INSTALACAO.md)
 - [Backup e restauração](docs/BACKUP_E_RESTAURACAO.md)
-- [Ferramentas MCP e Codex](docs/MCP.md)
+- [Ferramentas MCP](docs/MCP.md)
 - [Regras financeiras](docs/REGRAS_FINANCEIRAS.md)
 - [Segurança e privacidade](docs/SEGURANCA.md)
 - [Resultados dos testes](docs/PLANO_DE_TESTES.md)
 
-A integração com outros assistentes é tratada separadamente: [Claude](docs/INTEGRACAO_CLAUDE.md), [Gemini](docs/INTEGRACAO_GEMINI.md) e [ChatGPT web](docs/INTEGRACAO_CHATGPT.md).
+A integração com outros assistentes tem documentação própria: [Claude](docs/INTEGRACAO_CLAUDE.md), [Gemini](docs/INTEGRACAO_GEMINI.md) e [ChatGPT web](docs/INTEGRACAO_CHATGPT.md).
 
 ## Estrutura
 
-`frontend/` contém a interface React; `backend/app/`, a API e as regras financeiras; `mcp_server/`, as ferramentas STDIO; `migrations/`, o esquema PostgreSQL; `scripts/`, instalação, execução e backup. Nenhum dado pessoal ou senha fica no repositório.
+- `frontend/`: interface React
+- `backend/app/`: API e regras financeiras
+- `mcp_server/`: ferramentas STDIO
+- `migrations/`: esquema do PostgreSQL
+- `scripts/`: instalação, execução e backup
+
+Nenhum dado pessoal nem senha fica no repositório.
